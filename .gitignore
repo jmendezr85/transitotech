@@ -1,0 +1,27 @@
+cat << 'EOF' > .gitignore
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# IDEs y Editores
+.vscode/
+.idea/
+
+# Entornos y variables secretas
+.env
+.env.local
+*.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# Node / Backend
+node_modules/
+dist/
+
+# Flutter / Frontend
+.dart_tool/
+.build/
+build/
+EOF
