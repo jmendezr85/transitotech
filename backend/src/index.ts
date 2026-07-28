@@ -11,6 +11,7 @@ import { errorHandler } from './shared/middlewares/errorHandler.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import routesRoutes from './modules/routes/routes.routes.js';
 import trackingRoutes from './modules/tracking/tracking.routes.js';
+import ratingsRoutes from './modules/ratings/ratings.routes.js';
 import { TrackingGateway } from './modules/tracking/tracking.gateway.js';
 
 dotenv.config();
@@ -48,6 +49,7 @@ app.get('/health', async (req, res, next) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/routes', routesRoutes);
 app.use('/api/v1/tracking', trackingRoutes);
+app.use('/api/v1/ratings', ratingsRoutes);
 
 // Inicializar Gateway de WebSockets
 new TrackingGateway(io);
