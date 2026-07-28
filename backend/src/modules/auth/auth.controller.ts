@@ -11,12 +11,20 @@ export class AuthController {
 
   register = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email, password, full_name } = req.body;
-      if (!email || !password || !full_name) {
+      const { full_name, email, password, role } = req.body;
+
+      if (!full_name || !email || !password) {
         return ApiResponse.error(res, 'Todos los campos son obligatorios.', 400);
       }
 
-      const user = await this.authService.register({ email, password, full_name });
+      // Se usa register(...) tal como se declaró en AuthService
+      const user = await this.authService.register({
+        full_name,
+        email,
+        password,
+        role: role || 'passenger',
+      });
+
       return ApiResponse.success(res, user, 'Usuario registrado exitosamente.', 201);
     } catch (error) {
       next(error);
@@ -26,11 +34,13 @@ export class AuthController {
   login = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, password } = req.body;
+
       if (!email || !password) {
-        return ApiResponse.error(res, 'Correo y contraseña requeridos.', 400);
+        return ApiResponse.error(res, 'Email y contraseña son requeridos.', 400);
       }
 
-      const result = await this.authService.login({ email, password });
+      // Se usa login(...) tal como se declaró en AuthService
+      const result = await this.authService.login(email, password);
       return ApiResponse.success(res, result, 'Inicio de sesión exitoso.', 200);
     } catch (error) {
       next(error);

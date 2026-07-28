@@ -4,11 +4,28 @@ import 'package:dio/dio.dart';
 class ApiService {
   final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: 'http://localhost:3000/api/v1',
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 5),
+      baseUrl: 'https://transitotech.onrender.com/api/v1',
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
     ),
   );
+
+  /// Método de Autenticación Universal
+  Future<Map<String, dynamic>?> login(String email, String password) async {
+    try {
+      final response = await _dio.post(
+        '/auth/login',
+        data: {'email': email, 'password': password},
+      );
+      return response.data;
+    } catch (e) {
+      if (e is DioException && e.response != null) {
+        return e.response?.data;
+      }
+      debugPrint('❌ Error en Login: $e');
+      return null;
+    }
+  }
 
   /// Obtener el listado de rutas activas
   Future<List<dynamic>> getRoutes() async {
@@ -24,7 +41,7 @@ class ApiService {
     }
   }
 
-  /// Obtener detalle de una ruta específica con sus coordenadas GeoJSON
+  /// Obtener detalle de una ruta específica
   Future<Map<String, dynamic>?> getRouteDetails(String routeId) async {
     try {
       final response = await _dio.get('/routes/$routeId');
@@ -38,7 +55,7 @@ class ApiService {
     }
   }
 
-  /// Obtener la lista de buses activos en línea
+  /// Obtener la lista de buses activos
   Future<List<dynamic>> getActiveBuses() async {
     try {
       final response = await _dio.get('/tracking/buses/active');
