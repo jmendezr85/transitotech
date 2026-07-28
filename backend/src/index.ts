@@ -31,17 +31,24 @@ app.use(cors());
 app.use(express.json());
 
 // Endpoints Base
-app.get('/health', async (req, res, next) => {
+app.get('/health', async (req, res) => {
   try {
-    const dbResult = await pool.query('SELECT PostGIS_Full_Version() as version;');
+    // Prueba de conexión simple en lugar de la versión completa de PostGIS
+    const dbResult = await pool.query('SELECT NOW() as current_time;');
     return ApiResponse.success(res, {
       service: 'TransitoTech API',
       database: 'Connected',
-      postgis_version: dbResult.rows[0].version,
+      time: dbResult.rows[0].current_time,
       timestamp: new Date().toISOString()
     }, 'Servidor y Base de Datos funcionando correctamente');
-  } catch (error) {
-    next(error);
+  } catch (error: any) {
+    // Retornar el detalle exacto del error para diagnosticar de inmediato
+    return res.status(500).json({
+      success: false,
+      error_detail: error.message || error,
+      code: error.code || 'UNKNOWN',
+      hint: 'Revisar la cadena de conexion DATABASE_URL o el puerto de Supabase'
+    });
   }
 });
 
