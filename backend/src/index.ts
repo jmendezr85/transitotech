@@ -30,25 +30,18 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Endpoints Base
-app.get('/health', async (req, res) => {
+// Endpoint de Salud de la API y Base de Datos PostGIS
+app.get('/health', async (req, res, next) => {
   try {
-    // Prueba de conexión simple en lugar de la versión completa de PostGIS
-    const dbResult = await pool.query('SELECT NOW() as current_time;');
+    const dbResult = await pool.query('SELECT PostGIS_Full_Version() as version;');
     return ApiResponse.success(res, {
       service: 'TransitoTech API',
       database: 'Connected',
-      time: dbResult.rows[0].current_time,
+      postgis_version: dbResult.rows[0].version,
       timestamp: new Date().toISOString()
     }, 'Servidor y Base de Datos funcionando correctamente');
-  } catch (error: any) {
-    // Retornar el detalle exacto del error para diagnosticar de inmediato
-    return res.status(500).json({
-      success: false,
-      error_detail: error.message || error,
-      code: error.code || 'UNKNOWN',
-      hint: 'Revisar la cadena de conexion DATABASE_URL o el puerto de Supabase'
-    });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -65,5 +58,5 @@ new TrackingGateway(io);
 app.use(errorHandler);
 
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Servidor HTTP y WebSockets TransitoTech corriendo en http://localhost:${PORT}`);
+  console.log(`🚀 Servidor HTTP y WebSockets TransitoTech corriendo en el puerto ${PORT}`);
 });
