@@ -1,27 +1,15 @@
-cat << 'EOF' > .gitignore
-# Archivos de sistema
-.DS_Store
-Thumbs.db
-
-# IDEs y Editores
-.vscode/
-.idea/
-
-# Entornos y variables secretas
-.env
-.env.local
-*.env
-
-# Logs
-*.log
-npm-debug.log*
-
-# Node / Backend
-node_modules/
-dist/
+# Node.js / Backend
+backend/node_modules/
+backend/dist/
+backend/.env
 
 # Flutter / Frontend
-.dart_tool/
-.build/
-build/
-EOF
+frontend/.dart_tool/
+frontend/.idea/
+frontend/build/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+
+# Entorno / Sistema
+.DS_Store
+*.log

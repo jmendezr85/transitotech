@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import '../../../../config/theme/app_config.dart';
-import '../../../../core/services/api_service.dart';
-import '../../../../core/services/websocket_service.dart';
+import 'package:transitotech/config/theme/app_config.dart';
+import 'package:transitotech/core/services/api_service.dart';
+import 'package:transitotech/core/services/websocket_service.dart';
 
 class MapScreen extends StatefulWidget {
   final AppConfig config;
@@ -16,182 +16,240 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final ApiService _apiService = ApiService();
-  final WebSocketService _webSocketService = WebSocketService();
+  final WebSocketService _wsService = WebSocketService();
   final MapController _mapController = MapController();
 
-  List<LatLng> _routePoints = [];
-  final Map<String, LatLng> _busPositions = {};
+  // Coordenadas iniciales por defecto (Centro de la Ciudad)
+  final LatLng _currentPassengerLocation = const LatLng(7.8890, -72.5070);
+  List<dynamic> _routes = [];
+  String? _selectedRouteId;
   bool _isLoading = true;
-  String _activeRouteName = 'Cargando ruta...';
-  final String _testRouteId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+
+  // Ubicaciones de buses en tiempo real recibidas por WebSocket
+  final Map<String, LatLng> _liveBuses = {};
 
   @override
   void initState() {
     super.initState();
-    _loadInitialMapData();
-    _initLiveTracking();
+    _initPassengerMap();
   }
 
-  @override
-  void dispose() {
-    _webSocketService.disconnect();
-    super.dispose();
-  }
-
-  Future<void> _loadInitialMapData() async {
-    setState(() => _isLoading = true);
-
-    // 1. Cargar trazado GeoJSON de la ruta
-    final routeData = await _apiService.getRouteDetails(_testRouteId);
-    if (routeData != null && routeData['path'] != null) {
-      final coordinates = routeData['path']['coordinates'] as List<dynamic>;
-      _routePoints = coordinates
-          .map((coord) => LatLng(coord[1].toDouble(), coord[0].toDouble()))
-          .toList();
-
-      _activeRouteName = '${routeData['code']} - ${routeData['name']}';
-    }
-
-    // 2. Cargar la última posición conocida de los autobuses desde la API REST
-    final buses = await _apiService.getActiveBuses();
-    for (var bus in buses) {
-      final location = bus['last_location'];
-      if (location != null && location['coordinates'] != null) {
-        final coords = location['coordinates'];
-        _busPositions[bus['bus_id']] = LatLng(
-          coords[1].toDouble(),
-          coords[0].toDouble(),
-        );
+  Future<void> _initPassengerMap() async {
+    try {
+      final routesData = await _apiService.getRoutes();
+      if (mounted) {
+        setState(() {
+          _routes = routesData;
+          if (_routes.isNotEmpty) {
+            _selectedRouteId = _routes.first['id'].toString();
+            _subscribeToRouteLiveTracking(_selectedRouteId!);
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error cargando rutas en el mapa: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false; // Desbloquear la UI siempre
+        });
       }
     }
-
-    setState(() => _isLoading = false);
   }
 
-  void _initLiveTracking() {
-    // Escuchar actualizaciones GPS en vivo por WebSockets
-    _webSocketService.connect(_testRouteId, (data) {
-      final String? busId = data['bus_id'];
-      final double? lat = (data['latitude'] as num?)?.toDouble();
-      final double? lng = (data['longitude'] as num?)?.toDouble();
+  void _subscribeToRouteLiveTracking(String routeId) {
+    _wsService.disconnect();
+    _liveBuses.clear();
 
-      if (busId != null && lat != null && lng != null) {
+    _wsService.connect(routeId, (data) {
+      if (data != null && data['lat'] != null && data['lng'] != null) {
+        final String busId = data['bus_id'] ?? 'BUS-ACTIVE';
+        final double lat = (data['lat'] as num).toDouble();
+        final double lng = (data['lng'] as num).toDouble();
+
         setState(() {
-          _busPositions[busId] = LatLng(lat, lng);
+          _liveBuses[busId] = LatLng(lat, lng);
         });
       }
     });
   }
 
   @override
+  void dispose() {
+    _wsService.disconnect();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final defaultCenter = LatLng(7.889, -72.507);
-
-    // Construir marcadores reactivos desde el mapa de posiciones
-    final markers = _busPositions.entries.map((entry) {
-      return Marker(
-        point: entry.value,
-        width: 42,
-        height: 42,
-        child: Container(
-          decoration: BoxDecoration(
-            color: widget.config.secondaryColor,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2.5),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black38,
-                blurRadius: 6,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.directions_bus,
-            color: Colors.white,
-            size: 22,
-          ),
-        ),
-      );
-    }).toList();
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.config.appName),
+        title: Text('${widget.config.appName} | Mapa en Vivo'),
+        backgroundColor: widget.config.primaryColor,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadInitialMapData,
+            icon: const Icon(Icons.my_location),
+            tooltip: 'Centrar en mi ubicación',
+            onPressed: () {
+              _mapController.move(_currentPassengerLocation, 15.0);
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Cerrar Sesión',
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/login');
+            },
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: defaultCenter,
-              initialZoom: 14.5,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.transitotech.app',
-              ),
-              if (_routePoints.isNotEmpty)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: _routePoints,
-                      strokeWidth: 5.0,
-                      color: widget.config.primaryColor,
-                    ),
-                  ],
-                ),
-              MarkerLayer(markers: markers),
-            ],
-          ),
-          Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Row(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
+              children: [
+                // 1. Mapa Interactivo de OpenStreetMap
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _currentPassengerLocation,
+                    initialZoom: 14.0,
+                  ),
                   children: [
-                    Icon(Icons.alt_route, color: widget.config.primaryColor),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _activeRouteName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.transitotech.app',
                     ),
-                    if (_isLoading)
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                    // Capa de Marcadores (Pasajero + Buses en Vivo)
+                    MarkerLayer(
+                      markers: [
+                        // Marcador Ubicación Pasajero
+                        Marker(
+                          point: _currentPassengerLocation,
+                          width: 40,
+                          height: 40,
+                          child: const Icon(
+                            Icons.person_pin_circle,
+                            color: Colors.blue,
+                            size: 40,
+                          ),
+                        ),
+                        // Marcadores de Autobuses transmitiendo por WebSockets
+                        ..._liveBuses.entries.map((entry) {
+                          return Marker(
+                            point: entry.value,
+                            width: 45,
+                            height: 45,
+                            child: Tooltip(
+                              message: 'Bus en Movimiento (${entry.key})',
+                              child: const CircleAvatar(
+                                backgroundColor: Colors.green,
+                                child: Icon(
+                                  Icons.directions_bus,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
                   ],
                 ),
-              ),
+
+                // 2. Panel Flotante Superior: Selector de Ruta
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  right: 16,
+                  child: Card(
+                    elevation: 6,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedRouteId,
+                          isExpanded: true,
+                          hint: const Text('Selecciona una Ruta'),
+                          items: _routes.map((route) {
+                            return DropdownMenuItem<String>(
+                              value: route['id'].toString(),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.alt_route,
+                                    color: Colors.blue,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text('${route['code']} - ${route['name']}'),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedRouteId = value;
+                              });
+                              _subscribeToRouteLiveTracking(value);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 3. Indicador Flotante de Conexión en Tiempo Real
+                Positioned(
+                  bottom: 24,
+                  left: 16,
+                  right: 16,
+                  child: Card(
+                    color: Colors.black87,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _liveBuses.isNotEmpty ? Icons.wifi : Icons.wifi_off,
+                            color: _liveBuses.isNotEmpty
+                                ? Colors.greenAccent
+                                : Colors.orangeAccent,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _liveBuses.isNotEmpty
+                                ? 'Buses rastreados en vivo: ${_liveBuses.length}'
+                                : 'Esperando transmisión de vehículos en esta ruta...',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }

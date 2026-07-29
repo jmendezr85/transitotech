@@ -1,21 +1,31 @@
-import pkg from 'pg';
+import pg from 'pg';
 import dotenv from 'dotenv';
+import path from 'path';
 
+// Carga .env desde la raíz del proceso (backend/)
 dotenv.config();
 
-const { Pool } = pkg;
+const { Pool } = pg;
 
-const isProduction = process.env.NODE_ENV === 'production';
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error('❌ ERROR CRÍTICO: DATABASE_URL no está definida en el archivo .env');
+} else {
+  console.log('✅ DATABASE_URL cargada correctamente.');
+}
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: isProduction ? { rejectUnauthorized: false } : false,
+  connectionString,
+  ssl: {
+    rejectUnauthorized: false, // Requerido para Supabase Cloud
+  },
 });
 
 pool.on('connect', () => {
-  console.log('📦 Conectado exitosamente a la base de datos PostgreSQL');
+  console.log('⚡ Conexión exitosa a la base de datos PostgreSQL/PostGIS');
 });
 
 pool.on('error', (err) => {
-  console.error('❌ Error inesperado en el cliente de PostgreSQL:', err);
+  console.error('💥 Error inesperado en el pool de PostgreSQL:', err);
 });

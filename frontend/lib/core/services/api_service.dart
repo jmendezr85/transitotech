@@ -4,9 +4,9 @@ import 'package:dio/dio.dart';
 class ApiService {
   final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: 'https://transitotech.onrender.com/api/v1',
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      baseUrl: 'http://localhost:3000/api/v1',
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
     ),
   );
 
@@ -31,12 +31,16 @@ class ApiService {
   Future<List<dynamic>> getRoutes() async {
     try {
       final response = await _dio.get('/routes');
-      if (response.data['success'] == true) {
-        return response.data['data'] as List<dynamic>;
+      if (response.statusCode == 200) {
+        if (response.data is Map && response.data['data'] != null) {
+          return response.data['data'] as List<dynamic>;
+        } else if (response.data is List) {
+          return response.data as List<dynamic>;
+        }
       }
       return [];
     } catch (e) {
-      debugPrint('❌ Error al obtener rutas: $e');
+      debugPrint(' Error al obtener rutas: $e');
       return [];
     }
   }

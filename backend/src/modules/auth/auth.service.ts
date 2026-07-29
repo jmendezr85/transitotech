@@ -35,12 +35,18 @@ export class AuthService {
       throw { statusCode: 401, message: 'Credenciales inválidas.' };
     }
 
+    if (!user.password_hash) {
+      throw { statusCode: 500, message: 'El usuario no posee hash de contraseña configurado.' };
+    }
+
+    // Comparación directa contra el hash de la BD
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordValid) {
       throw { statusCode: 401, message: 'Credenciales inválidas.' };
     }
 
-    const secret = process.env.JWT_SECRET || 'transitotech_secret_key';
+    const secret = process.env.JWT_SECRET || 'transitotech_jwt_secret_key_2026_local';
+    
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       secret,

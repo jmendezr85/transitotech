@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'config/theme/app_config.dart';
-import 'config/theme/app_theme.dart';
-import 'features/auth/presentation/screens/login_screen.dart';
-import 'features/map/presentation/screens/map_screen.dart';
-import 'features/admin/presentation/screens/admin_dashboard_screen.dart';
+import 'package:transitotech/config/theme/app_config.dart';
+import 'package:transitotech/config/theme/app_theme.dart';
+import 'package:transitotech/features/auth/presentation/screens/login_screen.dart';
+import 'package:transitotech/features/map/presentation/screens/map_screen.dart';
+import 'package:transitotech/features/admin/presentation/screens/admin_dashboard_screen.dart';
+import 'package:transitotech/features/driver/presentation/screens/driver_shift_screen.dart';
 
 void main() {
   runApp(const TransitoTechApp());
@@ -26,12 +27,7 @@ class TransitoTechApp extends StatelessWidget {
         '/map': (context) => MapScreen(config: defaultConfig),
         '/admin/dashboard': (context) =>
             AdminDashboardScreen(config: defaultConfig),
-        '/driver/shift': (context) => Scaffold(
-          appBar: AppBar(title: const Text('Modo Conductor - Transmisión GPS')),
-          body: const Center(
-            child: Text('🚌 Módulo 2: App Conductor (Próximo paso)'),
-          ),
-        ),
+        '/driver/shift': (context) => DriverShiftScreen(config: defaultConfig),
       },
     );
   }
